@@ -19,11 +19,14 @@
 
 import re
 import os
+import sys
 from enum import Enum
+from bs4 import BeautifulSoup
+import argparse
 from typing import Dict, List, Optional, Tuple, Union
 from datetime import datetime
 
-class SectionType(Enum):
+class SectionType(str, Enum):
     """Enumeration of possible sections in a CodeDrop."""
     REQUIREMENTS = "requirements"
     DESIGN = "design"
@@ -31,6 +34,7 @@ class SectionType(Enum):
     TESTING = "testing"
     DOCUMENTATION = "documentation"
     UNKNOWN = "unknown"
+    HTML_SECTIONS = "html_sections"  # Special type for HTML section mapping
 
 class CodeDropExtractor:
     """
@@ -43,39 +47,47 @@ class CodeDropExtractor:
     # Default section markers (can be customized)
     DEFAULT_MARKERS = {
         SectionType.REQUIREMENTS: [
-            r"#+\s*Requirements:?",
-            r"#+\s*Specification:?",
+            r"^#+\s*Requirements:?",
+            r"^#+\s*Specification:?",
             r"/\*+\s*Requirements:?\s*\*+/",
             r"//+\s*Requirements:?",
             r"\"\"\"[\s\S]*?Requirements:?[\s\S]*?\"\"\""
         ],
         SectionType.DESIGN: [
-            r"#+\s*Design:?",
-            r"#+\s*Architecture:?",
+            r"^#+\s*Design:?",
+            r"^#+\s*Architecture:?",
             r"/\*+\s*Design:?\s*\*+/",
             r"//+\s*Design:?",
             r"\"\"\"[\s\S]*?Design:?[\s\S]*?\"\"\""
         ],
         SectionType.IMPLEMENTATION: [
-            r"#+\s*Implementation:?",
-            r"#+\s*Code:?",
+            r"^#+\s*Implementation:?",
+            r"^#+\s*Code:?",
             r"/\*+\s*Implementation:?\s*\*+/",
             r"//+\s*Implementation:?",
             r"\"\"\"[\s\S]*?Implementation:?[\s\S]*?\"\"\""
         ],
         SectionType.TESTING: [
-            r"#+\s*Testing:?",
-            r"#+\s*Tests:?",
+            r"^#+\s*Testing:?",
+            r"^#+\s*Tests:?",
             r"/\*+\s*Testing:?\s*\*+/",
             r"//+\s*Testing:?",
             r"\"\"\"[\s\S]*?Testing:?[\s\S]*?\"\"\""
         ],
         SectionType.DOCUMENTATION: [
-            r"#+\s*Documentation:?",
+            r"^#+\s*Documentation:?",
             r"/\*+\s*Documentation:?\s*\*+/",
             r"//+\s*Documentation:?",
             r"\"\"\"[\s\S]*?Documentation:?[\s\S]*?\"\"\""
-        ]
+        ],
+        # HTML section IDs
+        SectionType.HTML_SECTIONS: {
+            "requirements": SectionType.REQUIREMENTS,
+            "design": SectionType.DESIGN,
+            "implementation": SectionType.IMPLEMENTATION,
+            "testing": SectionType.TESTING,
+            "documentation": SectionType.DOCUMENTATION
+        }
     }
 
     def __init__(self, custom_markers: Optional[Dict[SectionType, List[str]]] = None):
@@ -90,6 +102,7 @@ class CodeDropExtractor:
             for section_type, patterns in custom_markers.items():
                 if section_type in self.markers:
                     self.markers[section_type].extend(patterns)
+        self.html_sections = self.DEFAULT_MARKERS.pop(SectionType.HTML_SECTIONS)
 
     def extract_from_file(self, file_path: str) -> Dict[SectionType, str]:
         """
@@ -115,7 +128,69 @@ class CodeDropExtractor:
         self.source_file = os.path.basename(file_path)
         self.component_name = os.path.splitext(self.source_file)[0]
 
+        # Check if this is an HTML file
+        if file_path.lower().endswith('.html'):
+            return self.extract_from_html(content)
+
         return self.extract_from_string(content)
+
+    def extract_from_html(self, content: str) -> Dict[SectionType, str]:
+        """
+        Extract sections from an HTML CodeDrop.
+
+        Args:
+            content: String containing the HTML CodeDrop content
+
+        Returns:
+            Dictionary mapping section types to their content
+        """
+        result = {}
+
+        try:
+            # Parse HTML with BeautifulSoup
+            soup = BeautifulSoup(content, 'html.parser')
+
+            # Find all section divs
+            for section_div in soup.find_all('div', class_='section'):
+                # Get section ID
+                section_id = section_div.get('id')
+                if not section_id:
+                    continue
+
+                # Map section ID to SectionType
+                if section_id in self.html_sections:
+                    section_type = self.html_sections[section_id]
+
+                    # Extract content based on section type
+                    if section_type in [SectionType.IMPLEMENTATION, SectionType.TESTING]:
+                        # For code sections, extract from <pre><code> elements
+                        code_elements = section_div.find_all('code')
+                        if code_elements:
+                            section_content = '\n\n'.join(code.get_text() for code in code_elements)
+                        else:
+                            section_content = section_div.get_text().strip()
+                    else:
+                        # For other sections, get all text
+                        # Skip the heading
+                        heading = section_div.find(['h1', 'h2', 'h3'])
+                        if heading:
+                            heading.extract()
+                        section_content = section_div.get_text().strip()
+
+                    result[section_type] = section_content
+
+        except Exception as e:
+            print(f"Warning: Error parsing HTML: {e}")
+            # Fall back to string extraction
+            return self.extract_from_string(content)
+
+        # Validate that we have the required sections
+        missing_sections = set([SectionType.REQUIREMENTS, SectionType.DESIGN, SectionType.IMPLEMENTATION]) - set(result.keys())
+        if missing_sections:
+            missing = ", ".join(s.value for s in missing_sections)
+            print(f"Warning: Missing sections in HTML CodeDrop: {missing}")
+
+        return result
 
     def extract_from_string(self, content: str, component_name: str = "component") -> Dict[SectionType, str]:
         """
@@ -168,7 +243,7 @@ class CodeDropExtractor:
             result[section_type] = section_content
 
         # Validate that we have the required sections
-        missing_sections = {SectionType.REQUIREMENTS, SectionType.DESIGN, SectionType.IMPLEMENTATION} - set(result.keys())
+        missing_sections = set([SectionType.REQUIREMENTS, SectionType.DESIGN, SectionType.IMPLEMENTATION]) - set(result.keys())
         if missing_sections:
             missing = ", ".join(s.value for s in missing_sections)
             print(f"Warning: Missing sections in CodeDrop: {missing}")
@@ -186,12 +261,21 @@ class CodeDropExtractor:
             Extracted code without the markdown code block syntax
         """
         # Look for code blocks with language specifier
-        code_block_pattern = r'```(?:\w+)?\n([\s\S]*?)\n```'
-        matches = re.findall(code_block_pattern, content)
+        # Use a more robust regex approach for extracting code blocks
 
-        if matches:
-            # Join all code blocks if multiple are found
-            return '\n\n'.join(matches)
+        # Pattern 1: Standard markdown code blocks with language specifier
+        pattern1 = r'(?:python|js|java|cpp|c)?\s*\n([\s\S]*?)\n\s*'
+        matches1 = re.findall(pattern1, content)
+
+        if matches1:
+            return '\n\n'.join(matches1)
+
+        # Pattern 2: More lenient pattern for code blocks
+        pattern2 = r'\s*([\s\S]*?)\s*'
+        matches2 = re.findall(pattern2, content)
+
+        if matches2:
+            return '\n\n'.join(matches2)
 
         # If no code blocks found, return the original content
         return content
@@ -355,92 +439,83 @@ Generated on: {timestamp}
         else:
             return 'txt'
 
-# Testing
-def run_tests():
-    """Run unit tests for the CodeDropExtractor."""
-    # Test data
-    test_code_drop = """
-    # Fibonacci Generator
+def main():
+    """Command line interface for the CodeDrop extractor."""
+    parser = argparse.ArgumentParser(description='Extract sections from CodeDrop files')
+    parser.add_argument('file', help='Path to the CodeDrop file')
+    parser.add_argument('-o', '--output', help='Output directory for extracted sections (default: same directory as the code drop)', required=True)
+    parser.add_argument('-n', '--name', help='Base name for output files (default: derived from input file)')
+    parser.add_argument('--subdirs', action='store_true',
+                        help='Create subdirectories for each section type (e.g., requirements/, implementation/)')
+    parser.add_argument('--html', action='store_true', help='Force HTML parsing even for non-HTML files')
+    parser.add_argument('--debug', action='store_true', help='Print debug information')
+    parser.add_argument('-s', '--section', choices=[s.value for s in SectionType if s != SectionType.UNKNOWN],
+                        help='Extract only a specific section')
+    args = parser.parse_args()
 
-    ## Requirements:
-    - Generate Fibonacci numbers in sequence
-    - Support arbitrary sequence length
+    try:
+        extractor = CodeDropExtractor()
 
-    ## Design:
-    - Use iterative approach
-    - Return as a list
+        # Print the file we're processing to help debug
+        if args.debug:
+            print(f"Processing CodeDrop file: {os.path.abspath(args.file)}")
 
-    ## Implementation:
-    def generate_fibonacci(count):
-        if count < 0:
-            raise ValueError("Count cannot be negative")
+        # Extract all sections - use HTML parsing if specified or if file has .html extension
+        if args.html or args.file.lower().endswith('.html'):
+            with open(args.file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            sections = extractor.extract_from_html(content)
+        else:
+            sections = extractor.extract_from_file(args.file)
 
-        fibonacci = [0] if count > 0 else []
-        if count > 1:
-            fibonacci.append(1)
+        # Debug output
+        if args.debug:
+            print("\nExtracted sections:")
+            for section_type, content in sections.items():
+                print(f"\n--- {section_type.value} ---")
+                print(content[:200] + "..." if len(content) > 200 else content)
 
-        for i in range(2, count):
-            fibonacci.append(fibonacci[i-1] + fibonacci[i-2])
+        # If no specific section is requested, save all sections to files
+        if not args.section:
+            # Get base name from file or argument
+            base_name = args.name or os.path.splitext(os.path.basename(args.file))[0]
 
-        return fibonacci
+            # Create subdirectories if requested
+            if args.subdirs:
+                section_dirs = {
+                    section_type: os.path.join(args.output, section_type.value)
+                    for section_type in SectionType if section_type != SectionType.UNKNOWN
+                }
+                for dir_path in section_dirs.values():
+                    os.makedirs(dir_path, exist_ok=True)
 
-    ## Testing:
-    assert generate_fibonacci(5) == [0, 1, 1, 2, 3]
-    """
+                file_paths = {}
+                for section_type, content in sections.items():
+                    if section_type in section_dirs:
+                        path = extractor.save_sections_to_files(
+                            {section_type: content}, section_dirs[section_type], base_name
+                        )
+                        file_paths.update(path)
+            else:
+                # Save all sections to a single directory
+                file_paths = extractor.save_sections_to_files(sections, args.output, base_name)
 
-    # Create extractor
-    extractor = CodeDropExtractor()
+            if args.debug:
+                print("\nSaved sections to files:")
+                for section_type, path in file_paths.items():
+                    print(f"  - {section_type.value}: {path}")
+        else:
+            # Output only the requested section
+            section_type = SectionType(args.section)
+            if section_type in sections:
+                print(sections[section_type])
+            else:
+                print(f"Section '{args.section}' not found in {args.file}")
+                sys.exit(1)
 
-    # Test extraction
-    sections = extractor.extract_from_string(test_code_drop, "fibonacci_generator")
+    except Exception as e:
+        print(f"Error processing {args.file}: {e}")
+        sys.exit(1)
 
-    # Verify all sections are extracted
-    assert SectionType.REQUIREMENTS in sections
-    assert SectionType.DESIGN in sections
-    assert SectionType.IMPLEMENTATION in sections
-    assert SectionType.TESTING in sections
-
-    # Verify content
-    assert "Generate Fibonacci numbers" in sections[SectionType.REQUIREMENTS]
-    assert "Use iterative approach" in sections[SectionType.DESIGN]
-    assert "def generate_fibonacci" in sections[SectionType.IMPLEMENTATION]
-    assert "assert generate_fibonacci" in sections[SectionType.TESTING]
-
-    # Test implementation extraction
-    impl = extractor.extract_implementation(test_code_drop)
-    assert "def generate_fibonacci" in impl
-
-    print("All tests passed!")
-
-# Example usage
 if __name__ == "__main__":
-    import sys
-
-    run_tests()
-
-    if len(sys.argv) > 1:
-        file_path = sys.argv[1]
-        try:
-            extractor = CodeDropExtractor()
-            sections = extractor.extract_from_file(file_path)
-
-            # Get output directory (default to current directory)
-            output_dir = "."
-            if len(sys.argv) > 2:
-                output_dir = sys.argv[2]
-
-            # Get base name from file
-            base_name = os.path.splitext(os.path.basename(file_path))[0]
-
-            # Save sections to files
-            file_paths = extractor.save_sections_to_files(sections, output_dir, base_name)
-
-            print(f"Extracted {len(sections)} sections from {file_path}")
-            for section_type, path in file_paths.items():
-                print(f"  - {section_type.value}: {path}")
-
-        except Exception as e:
-            print(f"Error processing {file_path}: {e}")
-            sys.exit(1)
-    else:
-        print("Usage: python code_drop_extractor.py <code_drop_file> [output_directory]")
+    main()

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fibonacci Generator - CodeDrop</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .section {
+            margin-bottom: 30px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fibonacci Generator</h1>
+
+    <div class="section" id="requirements">
+        <h2>Requirements</h2>
+        <ul>
+            <li>Generate Fibonacci numbers in sequence (0, 1, 1, 2, 3, 5, 8, 13, ...)</li>
+            <li>Support generating an arbitrary number of elements in the sequence</li>
+            <li>Handle edge cases (negative count should raise an error)</li>
+            <li>Return results as a list</li>
+        </ul>
+    </div>
+
+    <div class="section" id="design">
+        <h2>Design</h2>
+        <ul>
+            <li>Implement as a single function that returns a list</li>
+            <li>Use iterative approach to avoid recursion overhead</li>
+            <li>Initialize with first two Fibonacci numbers (0, 1)</li>
+            <li>For each subsequent number, add the previous two numbers</li>
+            <li>Validate input parameters before calculation</li>
+        </ul>
+    </div>
+
+    <div class="section" id="documentation">
+        <h2>Documentation</h2>
+        <h3>generate_fibonacci</h3>
+        <p>
+            Generate a list containing the Fibonacci sequence.
+        </p>
+        <p>
+            The Fibonacci sequence starts with 0 and 1, where each subsequent number
+            is the sum of the two preceding ones: 0, 1, 1, 2, 3, 5, 8, 13, ...
+        </p>
+        <p><strong>Parameters:</strong></p>
+        <ul>
+            <li><code>count</code>: Number of Fibonacci numbers to generate</li>
+        </ul>
+        <p><strong>Returns:</strong></p>
+        <ul>
+            <li>List of Fibonacci numbers</li>
+        </ul>
+        <p><strong>Raises:</strong></p>
+        <ul>
+            <li><code>ValueError</code>: If count is negative</li>
+        </ul>
+        <p><strong>Examples:</strong></p>
+        <pre><code>>>> generate_fibonacci(5)
+[0, 1, 1, 2, 3]
+
+>>> generate_fibonacci(0)
+[]</code></pre>
+    </div>
+
+    <div class="section" id="implementation">
+        <h2>Implementation</h2>
+        <pre><code>def generate_fibonacci(count):
+    """
+    Generate a list containing the Fibonacci sequence.
+
+    Args:
+        count: Number of Fibonacci numbers to generate
+
+    Returns:
+        List of Fibonacci numbers
+
+    Raises:
+        ValueError: If count is negative
+    """
+    if count < 0:
+        raise ValueError("Count cannot be negative")
+
+    if count == 0:
+        return []
+
+    # Initialize with first two Fibonacci numbers
+    fibonacci = [0]
+
+    if count > 1:
+        fibonacci.append(1)
+
+    # Generate subsequent numbers
+    for i in range(2, count):
+        fibonacci.append(fibonacci[i-1] + fibonacci[i-2])
+
+    return fibonacci</code></pre>
+    </div>
+
+    <div class="section" id="testing">
+        <h2>Testing</h2>
+        <pre><code># Test valid inputs
+assert generate_fibonacci(0) == []
+assert generate_fibonacci(1) == [0]
+assert generate_fibonacci(2) == [0, 1]
+assert generate_fibonacci(5) == [0, 1, 1, 2, 3]
+assert generate_fibonacci(10) == [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+
+# Test error cases
+try:
+    generate_fibonacci(-1)
+    assert False, "Should have raised ValueError"
+except ValueError:
+    pass  # Expected behavior
+
+print("All tests passed!")</code></pre>
+    </div>
+</body>
+</html>

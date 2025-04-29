@@ -24,6 +24,7 @@ A CodeDrop is a single file that contains everything needed to understand, use, 
 ### Installation
 
 ```bash
+pip install -r requirements.txt
 pip install codedrops
 ```
 

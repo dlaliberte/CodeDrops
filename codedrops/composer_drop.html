@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Composer Drop</title>
+</head>
+<body>
+
+    <div class="section" id="requirements">
+        <h2>Requirements</h2>
+        <ul>
+            <li>Combine implementation sections from multiple CodeDrops into a single file</li>
+            <li>Combine testing sections from multiple CodeDrops into a single file</li>
+            <li>Support generating composite documentation from multiple CodeDrops</li>
+            <li>Maintain proper imports and dependencies between components</li>
+            <li>Preserve documentation headers and attribution to original CodeDrops</li>
+            <li>Support different programming languages</li>
+            <li>Provide both CLI and API interfaces</li>
+        </ul>
+    </div>
+
+    <div class="section" id="design">
+        <h2>Design</h2>
+        <ul>
+            <li>Create a <code>CodeDropComposer</code> class that takes multiple CodeDrop files or directories as input</li>
+            <li>Use the <code>CodeDropExtractor</code> to extract sections from each CodeDrop</li>
+            <li>Group sections by type (implementation, testing, etc.)</li>
+            <li>For each section type, combine the content with appropriate separators</li>
+            <li>Handle language-specific composition (imports at the top, etc.)</li>
+            <li>Generate composite files with proper headers and documentation</li>
+            <li>Support customization of output format and structure</li>
+        </ul>
+    </div>
+
+    <div class="section" id="documentation">
+        <h2>Documentation</h2>
+        <h3>CodeDropComposer</h3>
+        <p>The <code>CodeDropComposer</code> combines sections from multiple CodeDrops into composite files.</p>
+        <h4>Usage:</h4>
+        <pre>
+<code>python
+from codedrops.composer import CodeDropComposer
+from codedrops.extractor import CodeDropExtractor
+
+# Create a composer with an extractor
+extractor = CodeDropExtractor()
+composer = CodeDropComposer(extractor)
+
+# Add CodeDrops to the composition
+composer.add_drop("fibonacci_generator.md")
+composer.add_drop("prime_checker.md")
+composer.add_drop("factorial_calculator.md")
+
+# Generate composite files
+composer.compose("math_utils", output_dir="./generated")
+</code>
+        </pre>
+        <h4>CLI Usage:</h4>
+        <pre>
+<code>bash
+python -m codedrops.composer --output math_utils --dir ./generated fibonacci_generator.md prime_checker.md factorial_calculator.md
+</code>
+        </pre>
+        <p>This will generate:</p>
+        <ul>
+            <li><code>math_utils_implementation.py</code> - Combined implementation code</li>
+            <li><code>math_utils_testing.py</code> - Combined test code</li>
+            <li><code>math_utils_documentation.md</code> - Combined documentation</li>
+            <li><code>math_utils_requirements.md</code> - Combined requirements</li>
+            <li><code>math_utils_design.md</code> - Combined design notes</li>
+        </ul>
+    </div>
+
+    <div class="section" id="implementation">
+        <h2>Implementation</h2>
+        <pre>
+<code>python
+"""
+CodeDrops Composer - Combine sections from multiple CodeDrops into composite files.
+
+This module provides functionality to compose multiple CodeDrop files into
+composite implementation, testing, documentation, and other files.
+"""
+
+import os
+import sys
+import argparse
+from typing import Dict, List, Optional, Set, Tuple, Union
+from pathlib import Path
+from datetime import datetime
+
+from codedrops.extractor import CodeDropExtractor, SectionType
+
+class CodeDropComposer:
+    """
+    Combines sections from multiple CodeDrops into composite files.
+
+    This class takes multiple CodeDrop files, extracts their sections,
+    and combines them into composite files by section type.
+    """
+    ...
+</code>
+        </pre>
+    </div>
+
+    <div class="section" id="testing">
+        <h2>Testing</h2>
+        <pre>
+<code>python
+import os
+import tempfile
+import unittest
+
+# Example of test implementation
+class TestCodeDropComposer(unittest.TestCase):
+    ...
+</code>
+        </pre>
+    </div>
+
+</body>
+</html>
