@@ -39,7 +39,7 @@
         <p>The <code>CodeDropComposer</code> combines sections from multiple CodeDrops into composite files.</p>
         <h4>Usage:</h4>
         <pre>
-<code>python
+<code class="python">
 from codedrops.composer import CodeDropComposer
 from codedrops.extractor import CodeDropExtractor
 
@@ -58,7 +58,7 @@ composer.compose("math_utils", output_dir="./generated")
         </pre>
         <h4>CLI Usage:</h4>
         <pre>
-<code>bash
+<code class="bash">
 python -m codedrops.composer --output math_utils --dir ./generated fibonacci_generator.md prime_checker.md factorial_calculator.md
 </code>
         </pre>
@@ -75,7 +75,7 @@ python -m codedrops.composer --output math_utils --dir ./generated fibonacci_gen
     <div class="section" id="implementation">
         <h2>Implementation</h2>
         <pre>
-<code>python
+<code class="python">
 """
 CodeDrops Composer - Combine sections from multiple CodeDrops into composite files.
 
@@ -107,7 +107,7 @@ class CodeDropComposer:
     <div class="section" id="testing">
         <h2>Testing</h2>
         <pre>
-<code>python
+<code class="python">
 import os
 import tempfile
 import unittest

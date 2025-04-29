@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Composer Drop - Documentation</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 2em; }
+        .metadata { color: #666; font-style: italic; margin-bottom: 2em; }
+        h1 { color: #333; }
+    </style>
+</head>
+<body>
+    <h1>Composer Drop - Documentation</h1>
+    <div class="metadata">
+        Generated from CodeDrop: <br>
+        Section: documentation<br>
+        Generated on: 2025-04-29 11:58:03
+    </div>
+    <div class="content">
+<div class="section" id="documentation">
+
+<h3>CodeDropComposer</h3>
+<p>The <code>CodeDropComposer</code> combines sections from multiple CodeDrops into composite files.</p>
+<h4>Usage:</h4>
+<pre>
+<code class="python">
+from codedrops.composer import CodeDropComposer
+from codedrops.extractor import CodeDropExtractor
+
+# Create a composer with an extractor
+extractor = CodeDropExtractor()
+composer = CodeDropComposer(extractor)
+
+# Add CodeDrops to the composition
+composer.add_drop("fibonacci_generator.md")
+composer.add_drop("prime_checker.md")
+composer.add_drop("factorial_calculator.md")
+
+# Generate composite files
+composer.compose("math_utils", output_dir="./generated")
+</code>
+        </pre>
+<h4>CLI Usage:</h4>
+<pre>
+<code class="bash">
+python -m codedrops.composer --output math_utils --dir ./generated fibonacci_generator.md prime_checker.md factorial_calculator.md
+</code>
+        </pre>
+<p>This will generate:</p>
+<ul>
+<li><code>math_utils_implementation.py</code> - Combined implementation code</li>
+<li><code>math_utils_testing.py</code> - Combined test code</li>
+<li><code>math_utils_documentation.md</code> - Combined documentation</li>
+<li><code>math_utils_requirements.md</code> - Combined requirements</li>
+<li><code>math_utils_design.md</code> - Combined design notes</li>
+</ul>
+</div>
+    </div>
+</body>
+</html>

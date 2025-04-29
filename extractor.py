@@ -104,6 +104,9 @@ class CodeDropExtractor:
                     self.markers[section_type].extend(patterns)
         self.html_sections = self.DEFAULT_MARKERS.pop(SectionType.HTML_SECTIONS)
 
+        # Initialize source_file with an empty string
+        self.source_file = ""
+
     def extract_from_file(self, file_path: str) -> Dict[SectionType, str]:
         """
         Extract sections from a CodeDrop file.
@@ -163,19 +166,30 @@ class CodeDropExtractor:
 
                     # Extract content based on section type
                     if section_type in [SectionType.IMPLEMENTATION, SectionType.TESTING]:
-                        # For code sections, extract from <pre><code> elements
                         code_elements = section_div.find_all('code')
-                        if code_elements:
-                            section_content = '\n\n'.join(code.get_text() for code in code_elements)
-                        else:
-                            section_content = section_div.get_text().strip()
+                        content_pieces = []
+                        for code_element in code_elements:
+                            # Get language from class attribute if available
+                            if 'class' in code_element.attrs:
+                                code_class = code_element['class'][0] if code_element['class'] else 'text'
+                            else:
+                                # Default to text if no class specified
+                                code_class = 'text'
+                            code_text = code_element.get_text().strip()
+                            # Only add language comment if it's informationally necessary
+                            if code_class != 'text':
+                                language_comment = f"# Language: {code_class}" if code_class == 'python' else f"// Language: {code_class}"
+                                content_pieces.append(f"{language_comment}\n{code_text}")
+                            else:
+                                content_pieces.append(code_text)
+                        section_content = '\n\n'.join(content_pieces) if content_pieces else section_div.get_text().strip()
                     else:
-                        # For other sections, get all text
+                        # For non-code sections, preserve HTML structure
                         # Skip the heading
                         heading = section_div.find(['h1', 'h2', 'h3'])
                         if heading:
                             heading.extract()
-                        section_content = section_div.get_text().strip()
+                        section_content = str(section_div)
 
                     result[section_type] = section_content
 
@@ -185,9 +199,9 @@ class CodeDropExtractor:
             return self.extract_from_string(content)
 
         # Validate that we have the required sections
-        missing_sections = set([SectionType.REQUIREMENTS, SectionType.DESIGN, SectionType.IMPLEMENTATION]) - set(result.keys())
-        if missing_sections:
-            missing = ", ".join(s.value for s in missing_sections)
+        required_sections = {SectionType.REQUIREMENTS, SectionType.DESIGN, SectionType.IMPLEMENTATION}
+        if not required_sections.issubset(result.keys()):
+            missing = ", ".join(s.value for s in required_sections - set(result.keys()))
             print(f"Warning: Missing sections in HTML CodeDrop: {missing}")
 
         return result
@@ -303,11 +317,11 @@ class CodeDropExtractor:
 
         file_paths = {}
         extensions = {
-            SectionType.REQUIREMENTS: "md",
-            SectionType.DESIGN: "md",
-            SectionType.DOCUMENTATION: "md",
-            SectionType.IMPLEMENTATION: self._guess_extension(sections.get(SectionType.IMPLEMENTATION, "")),
-            SectionType.TESTING: self._guess_extension(sections.get(SectionType.TESTING, ""))
+            SectionType.REQUIREMENTS: "html",
+            SectionType.DESIGN: "html",
+            SectionType.DOCUMENTATION: "html",
+            SectionType.IMPLEMENTATION: self._guess_extension(sections.get(SectionType.IMPLEMENTATION, ""), SectionType.IMPLEMENTATION),
+            SectionType.TESTING: self._guess_extension(sections.get(SectionType.TESTING, ""), SectionType.TESTING)
         }
 
         for section_type, content in sections.items():
@@ -407,6 +421,32 @@ Generated on: {timestamp}
 *Generated on: {timestamp}*
 ---
 '''
+        elif extension == "html":
+            header = f'''<!DOCTYPE html>
+<html>
+<head>
+    <title>{component_name.replace('_', ' ').title()} - {section_type.value.title()}</title>
+    <meta charset="utf-8">
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; margin: 2em; }}
+        .metadata {{ color: #666; font-style: italic; margin-bottom: 2em; }}
+        h1 {{ color: #333; }}
+    </style>
+</head>
+<body>
+    <h1>{component_name.replace('_', ' ').title()} - {section_type.value.title()}</h1>
+    <div class="metadata">
+        Generated from CodeDrop: {self.source_file}<br>
+        Section: {section_type.value}<br>
+        Generated on: {timestamp}
+    </div>
+    <div class="content">
+'''
+            # Add closing tags at the end
+            return header + content + '''
+    </div>
+</body>
+</html>'''
         else:
             header = f'''// {component_name.replace('_', ' ').title()} - {section_type.value.title()}
 // Generated from CodeDrop: {self.source_file}
@@ -417,17 +457,44 @@ Generated on: {timestamp}
 
         return header + content
 
-    def _guess_extension(self, content: str) -> str:
+    def _guess_extension(self, content: str, section_type: Optional[SectionType] = None) -> str:
         """
-        Guess the file extension based on content.
+        Guess the file extension based on content, particularly handling class-based identification.
 
         Args:
             content: The content to analyze
+            section_type: The type of section for default assumptions
 
         Returns:
             A file extension (without the dot)
         """
-        # Simple heuristics to guess the language
+        # Check for explicit language declaration from code header comments
+        lines = content.split('\n')
+        for line in lines[:3]:  # Check first few lines
+            if line.startswith("// Language:") or line.startswith("# Language:"):
+                language = line.split(":")[1].strip().lower()
+                extension_map = {
+                    'python': 'py',
+                    'javascript': 'js',
+                    'java': 'java',
+                    'c': 'c',
+                    'cpp': 'cpp',
+                    'csharp': 'cs',
+                    'ruby': 'rb',
+                    'php': 'php',
+                    'go': 'go',
+                    'rust': 'rs',
+                    'typescript': 'ts',
+                    'html': 'html'
+                }
+                if language in extension_map:
+                    return extension_map[language]
+
+        # If no language is given, assume section-dependent defaults
+        if section_type in {SectionType.REQUIREMENTS, SectionType.DESIGN, SectionType.DOCUMENTATION}:
+            return 'html'
+
+        # Simple heuristics to guess the language if no explicit declaration
         if re.search(r'def\s+\w+\s*\(', content) or 'import ' in content:
             return 'py'
         elif re.search(r'function\s+\w+\s*\(', content) or 'console.log' in content:
@@ -436,6 +503,8 @@ Generated on: {timestamp}
             return 'java'
         elif '#include' in content or re.search(r'int\s+main\s*\(', content):
             return 'c' if not re.search(r'std::', content) else 'cpp'
+        elif re.search(r'<html', content, re.IGNORECASE) or re.search(r'<body', content, re.IGNORECASE):
+            return 'html'
         else:
             return 'txt'
 
